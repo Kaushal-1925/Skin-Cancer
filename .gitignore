@@ -1,0 +1,11 @@
+.env
+venv/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+SkinWarehouse/
+model.h5
+model_labels.json
+SkinWarehouse_Registry.csv
+SkinWarehouse_View.html

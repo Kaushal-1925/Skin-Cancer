@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkinCancer DWM – Data Warehouse & Mining Dashboard</title>
+  <meta name="description" content="Interactive dashboard for Skin Cancer Data Warehousing & Mining — ETL pipeline, web scraping, CNN training and live prediction." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════ NAV ══════════════════════ -->
+<nav>
+  <div class="container nav-inner">
+    <div class="nav-logo">
+      <div class="logo-icon" aria-hidden="true">🔬</div>
+      SkinCancer <span style="color:var(--green-600)">DWM</span>
+    </div>
+    <div class="nav-links">
+      <a href="#overview" class="active">Overview</a>
+      <a href="#registry">Registry</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#scrape">🌐 Scrape</a>
+      <a href="#detect">🧠 Detect</a>
+      <a href="#training-log">📊 Training</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#schema">Schema</a>
+    </div>
+    <span id="data-source-tag" style="font-size:.75rem;font-weight:600;margin-left:16px;">● Loading…</span>
+  </div>
+</nav>
+
+<!-- ══════════════════════ HERO ══════════════════════ -->
+<section class="hero" id="overview">
+  <div class="container">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Data Warehouse Active
+    </div>
+    <h1>Skin Cancer<br /><span>Detection Warehouse</span></h1>
+    <p>
+      A clinical image data warehouse for Melanoma, Basal Cell Carcinoma and Squamous Cell Carcinoma lesions — built with an automated ETL pipeline, web scraping, CNN training and live prediction.
+    </p>
+    <div class="hero-actions">
+      <a href="#gallery" class="btn btn-primary">🖼 Browse Gallery</a>
+      <a href="#scrape" class="btn btn-outline">🌐 Scrape Images</a>
+      <a href="#detect" class="btn btn-outline">🧠 Predict Cancer</a>
+      <button class="btn btn-outline" id="btn-download-csv">⬇ Export CSV</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ STATS ══════════════════════ -->
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat-card" style="--accent-color:#10b981">
+      <div class="stat-value" id="stat-total">…</div>
+      <div class="stat-label">Total Records</div>
+      <div class="stat-sub">In FactLesions table</div>
+    </div>
+    <div class="stat-card" style="--accent-color:#a855f7">
+      <div class="stat-value" id="stat-mel">…</div>
+      <div class="stat-label">MEL Images</div>
+      <div class="stat-sub">Melanoma lesions</div>
+    </div>
+    <div class="stat-card" style="--accent-color:#06b6d4">
+      <div class="stat-value" id="stat-bcc">…</div>
+      <div class="stat-label">BCC Images</div>
+      <div class="stat-sub">Basal Cell Carcinoma</div>
+    </div>
+    <div class="stat-card" style="--accent-color:#f97316">
+      <div class="stat-value" id="stat-scc">…</div>
+      <div class="stat-label">SCC Images</div>
+      <div class="stat-sub">Squamous Cell Carcinoma</div>
+    </div>
+    <div class="stat-card" style="--accent-color:#3b82f6">
+      <div class="stat-value" id="stat-sources">…</div>
+      <div class="stat-label">Data Sources</div>
+      <div class="stat-sub">Unique source hosts</div>
+    </div>
+    <div class="stat-card" style="--accent-color:#10b981">
+      <div class="stat-value" id="stat-resolution">…</div>
+      <div class="stat-label">Resolution</div>
+      <div class="stat-sub">Normalised grayscale</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ CHARTS ══════════════════════ -->
+  <div class="chart-section">
+    <div class="chart-card animate-in">
+      <h3>🫁 Label Distribution</h3>
+      <div class="donut-wrap">
+        <svg id="donut-svg" class="donut-svg" width="130" height="130"></svg>
+        <div class="legend" id="donut-legend"></div>
+      </div>
+    </div>
+    <div class="chart-card animate-in">
+      <h3>🌐 Source Distribution</h3>
+      <div class="source-bar" id="source-bars"></div>
+      <div style="margin-top:20px">
+        <div style="font-size:.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Configured Sources</div>
+        <div class="legend" id="source-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ REGISTRY ══════════════════════ -->
+  <section id="registry">
+    <div class="section-title">📋 Warehouse Registry</div>
+    <div class="section-subtitle">All records from the <code>FactLesions</code> table — filterable and searchable.</div>
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-table-filter="ALL">All</button>
+      <button class="filter-tab mel-tab" data-table-filter="MEL">MEL</button>
+      <button class="filter-tab bcc-tab" data-table-filter="BCC">BCC</button>
+      <button class="filter-tab scc-tab" data-table-filter="SCC">SCC</button>
+    </div>
+    <div class="table-wrapper">
+      <div class="table-search">
+        <input type="text" id="search-input" placeholder="Search by label, filename, or source…" aria-label="Search records" />
+        <span class="table-count" id="table-count">0 records</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table aria-label="Skin cancer lesion registry">
+          <thead><tr><th>ID</th><th>Label</th><th>Filename</th><th>Source</th><th>Ingested</th></tr></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ GALLERY ══════════════════════ -->
+  <section id="gallery">
+    <div class="section-title">🖼 Image Gallery</div>
+    <div class="section-subtitle">All warehouse images — grayscale, normalised via ETL. Click any image to inspect.</div>
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-gallery-filter="ALL">All</button>
+      <button class="filter-tab mel-tab" data-gallery-filter="MEL">Melanoma</button>
+      <button class="filter-tab bcc-tab" data-gallery-filter="BCC">Basal Cell</button>
+      <button class="filter-tab scc-tab" data-gallery-filter="SCC">Squamous Cell</button>
+    </div>
+    <div class="gallery-grid" id="gallery-grid" role="list"></div>
+  </section>
+
+  <!-- ══════════════════════ WEB SCRAPER ══════════════════════ -->
+  <section id="scrape">
+    <div class="section-title">🌐 Web Scraper — Data Mining</div>
+    <div class="section-subtitle">Paste any URL below to scrape skin lesion images. Scraped images are added to the warehouse, and the CNN model is retrained automatically.</div>
+
+    <div class="scrape-card">
+      <div class="scrape-input-group">
+        <input type="text" id="scrape-url" placeholder="https://example.com/skin-lesion-images …" />
+        <select id="scrape-label">
+          <option value="MEL">MEL</option>
+          <option value="BCC">BCC</option>
+          <option value="SCC">SCC</option>
+        </select>
+        <button class="btn btn-primary" id="btn-scrape">🔍 Scrape</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <label style="font-size:.82rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="scrape-retrain" checked style="accent-color:var(--green-500)">
+          Retrain CNN after scraping
+        </label>
+        <span style="font-size:.75rem;color:var(--text-muted)">Images per source: up to 10</span>
+      </div>
+      <div class="scrape-log" id="scrape-log"></div>
+      <div class="scrape-results" id="scrape-results"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ CNN DETECTION ══════════════════════ -->
+  <section id="detect">
+    <div class="section-title">🧠 CNN Cancer Detector</div>
+    <div class="section-subtitle">Upload a skin lesion image — the CNN will preprocess and classify it as MEL, BCC, or SCC.</div>
+
+    <div class="model-status-bar" id="model-status-bar">
+      <span id="model-status-icon">⟳</span>
+      <span id="model-status-text">Checking model status…</span>
+    </div>
+
+    <div class="detect-grid">
+      <div class="detect-card">
+        <h3 style="margin-bottom:16px;font-size:.95rem;color:var(--text-secondary)">📤 Upload Image</h3>
+        <div class="upload-zone" id="upload-zone" tabindex="0" role="button" aria-label="Upload skin lesion image">
+          <div class="upload-inner" id="upload-inner">
+            <div style="font-size:2.5rem">🔬</div>
+            <div style="font-weight:600;margin:8px 0 4px">Drop image here</div>
+            <div style="font-size:.8rem;color:var(--text-muted)">or click to browse</div>
+            <div style="font-size:.75rem;color:var(--text-muted);margin-top:6px">JPG / PNG / BMP accepted</div>
+          </div>
+          <img id="preview-img" src="" alt="Preview" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:12px;" />
+        </div>
+        <input type="file" id="file-input" accept="image/*" style="display:none" />
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="btn btn-primary" id="btn-detect" style="flex:1" disabled>🔍 Detect</button>
+          <button class="btn btn-outline" id="btn-clear-detect" style="flex:0 0 auto">✕ Clear</button>
+        </div>
+      </div>
+      <div class="detect-card" id="result-card">
+        <h3 style="margin-bottom:16px;font-size:.95rem;color:var(--text-secondary)">📊 Detection Result</h3>
+        <div id="detect-result-area">
+          <div style="text-align:center;padding:40px 0;color:var(--text-muted)">
+            <div style="font-size:2rem">🩺</div>
+            <div style="margin-top:8px;font-size:.85rem">Upload an image to begin analysis</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;padding:12px 16px;background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.15);border-radius:10px;font-size:.78rem;color:var(--text-muted);">
+      ⚠️ <strong style="color:#ea580c">Medical Disclaimer:</strong> This CNN is trained on a small dataset for academic purposes only. Results are <strong>not</strong> medically accurate. Always consult a qualified dermatologist.
+    </div>
+  </section>
+
+  <!-- ══════════════════════ TRAINING LOG ══════════════════════ -->
+  <section id="training-log">
+    <div class="section-title">📊 Model Training & Data Extraction Log</div>
+    <div class="section-subtitle">See how the model was trained, what data was extracted from each source, and browse all training images.</div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+      <button class="btn btn-primary" id="btn-show-training">📊 View Training History</button>
+      <button class="btn btn-outline" id="btn-show-extraction">📥 View Extraction Log</button>
+      <button class="btn btn-outline" id="btn-show-all-images">🖼 All Training Images</button>
+    </div>
+
+    <!-- Training Info Panel -->
+    <div class="scrape-card" id="training-info-panel" style="margin-bottom:20px">
+      <h3 style="font-size:.95rem;margin-bottom:12px;color:var(--green-700)">🧠 CNN Training Details</h3>
+      <div id="training-info-content">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+          <div style="padding:16px;background:var(--green-50);border-radius:var(--radius-sm)">
+            <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Architecture</div>
+            <div style="font-size:.88rem;font-weight:600">3-Block CNN (Conv2D + BatchNorm + MaxPool)</div>
+            <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px">32 → 64 → 128 filters, Dense(256), Softmax(3)</div>
+          </div>
+          <div style="padding:16px;background:var(--green-50);border-radius:var(--radius-sm)">
+            <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Input</div>
+            <div style="font-size:.88rem;font-weight:600">224 × 224 px Grayscale</div>
+            <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px">Normalised to [0, 1] float32</div>
+          </div>
+          <div style="padding:16px;background:var(--green-50);border-radius:var(--radius-sm)">
+            <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Training Config</div>
+            <div style="font-size:.88rem;font-weight:600">20 Epochs, Batch Size 8</div>
+            <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px">Adam optimizer, EarlyStopping(5), ReduceLR(3)</div>
+          </div>
+          <div style="padding:16px;background:var(--green-50);border-radius:var(--radius-sm)">
+            <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Model Status</div>
+            <div style="font-size:.88rem;font-weight:600" id="training-model-status">Checking…</div>
+            <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px" id="training-model-classes">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extraction Log Panel -->
+    <div class="scrape-card" id="extraction-log-panel" style="margin-bottom:20px;display:none">
+      <h3 style="font-size:.95rem;margin-bottom:12px;color:var(--green-700)">📥 Data Extraction Summary</h3>
+      <div id="extraction-log-content"></div>
+    </div>
+
+    <!-- All Training Images Panel -->
+    <div id="all-images-panel" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="font-size:.95rem;color:var(--green-700)">🖼 All Training Images (<span id="all-img-count">0</span>)</h3>
+        <div class="filter-tabs" style="margin-bottom:0">
+          <button class="filter-tab active" data-allimg-filter="ALL">All</button>
+          <button class="filter-tab mel-tab" data-allimg-filter="MEL">MEL</button>
+          <button class="filter-tab bcc-tab" data-allimg-filter="BCC">BCC</button>
+          <button class="filter-tab scc-tab" data-allimg-filter="SCC">SCC</button>
+        </div>
+      </div>
+      <div class="gallery-grid" id="all-images-grid"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ PIPELINE ══════════════════════ -->
+  <section id="pipeline">
+    <div class="section-title">⚙ ETL Pipeline Overview</div>
+    <div class="section-subtitle">How data flows from public clinical sources into the warehouse — as implemented in <code>warehouse_etl.py</code>.</div>
+    <div class="pipeline-grid">
+      <div class="pipeline-step animate-in">
+        <div class="step-icon step-e">📥</div>
+        <div class="step-body">
+          <h3>Extract</h3>
+          <p>HTTP requests to clinical sources using BeautifulSoup. Parses all <code>&lt;img&gt;</code> tags and downloads JPEG images per source per cancer type.</p>
+        </div>
+      </div>
+      <div class="pipeline-step animate-in">
+        <div class="step-icon step-t">⚗</div>
+        <div class="step-body">
+          <h3>Transform</h3>
+          <p>Images decoded with OpenCV, converted to grayscale (<code>COLOR_BGR2GRAY</code>), and uniformly resized to <strong>224 × 224 px</strong>.</p>
+        </div>
+      </div>
+      <div class="pipeline-step animate-in">
+        <div class="step-icon step-l">🗄</div>
+        <div class="step-body">
+          <h3>Load</h3>
+          <p>Processed images saved to <code>SkinWarehouse/</code> with structured filenames. Metadata inserted into MySQL <code>FactLesions</code> table.</p>
+        </div>
+      </div>
+      <div class="pipeline-step animate-in">
+        <div class="step-icon step-x">📤</div>
+        <div class="step-body">
+          <h3>Export</h3>
+          <p>Full warehouse snapshot exported to CSV and HTML via pandas for analysis and presentation.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ SCHEMA ══════════════════════ -->
+  <section id="schema">
+    <div class="section-title">🗂 Database Schema</div>
+    <div class="section-subtitle">The <code>SkinCancerDW</code> MySQL schema — single fact table, star-schema ready.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;">
+      <div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">📄 Creation SQL</div>
+        <div class="code-block" style="position:relative">
+          <button class="copy-btn" id="copy-sql-btn">Copy</button>
+          <pre id="sql-code"><span class="kw">CREATE DATABASE</span> SkinCancerDW;
+<span class="kw">USE</span> SkinCancerDW;
+
+<span class="kw">CREATE TABLE</span> <span class="fn">FactLesions</span> (
+    id          <span class="ty">INT</span> <span class="kw">AUTO_INCREMENT PRIMARY KEY</span>,
+    SourceURL   <span class="ty">VARCHAR</span>(<span class="st">700</span>),
+    Label       <span class="ty">VARCHAR</span>(<span class="st">50</span>),
+    LocalPath   <span class="ty">VARCHAR</span>(<span class="st">500</span>),
+    CreatedDate <span class="ty">TIMESTAMP</span>
+                <span class="kw">DEFAULT</span> <span class="fn">CURRENT_TIMESTAMP</span>
+);</pre>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">📊 Column Reference</div>
+        <div class="table-wrapper">
+          <div style="overflow-x:auto">
+            <table aria-label="Schema column reference">
+              <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">id</td><td><span class="chip" style="background:var(--green-50);color:var(--green-700);border:1px solid var(--green-200)">INT PK</span></td><td style="color:var(--text-muted)">Auto-increment primary key</td></tr>
+                <tr><td class="mono">SourceURL</td><td><span class="chip" style="background:var(--green-50);color:var(--text-muted);border:1px solid var(--border)">VARCHAR(700)</span></td><td style="color:var(--text-muted)">Original image URL from scrape</td></tr>
+                <tr><td class="mono">Label</td><td><span class="chip" style="background:var(--green-50);color:var(--text-muted);border:1px solid var(--border)">VARCHAR(50)</span></td><td style="color:var(--text-muted)">MEL / BCC / SCC</td></tr>
+                <tr><td class="mono">LocalPath</td><td><span class="chip" style="background:var(--green-50);color:var(--text-muted);border:1px solid var(--border)">VARCHAR(500)</span></td><td style="color:var(--text-muted)">Relative path to warehouse image</td></tr>
+                <tr><td class="mono">CreatedDate</td><td><span class="chip" style="background:var(--green-50);color:var(--text-muted);border:1px solid var(--border)">TIMESTAMP</span></td><td style="color:var(--text-muted)">ETL ingestion timestamp</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════ ABOUT CARDS ══════════════════════ -->
+  <section>
+    <div class="section-title">🏥 Cancer Type Reference</div>
+    <div class="section-subtitle">Clinical summaries of the three cancer categories tracked in this warehouse.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+      <div class="pipeline-step animate-in" style="flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="step-icon" style="background:rgba(168,85,247,0.08);color:#a855f7">🔬</div>
+          <strong>Melanoma <span class="chip chip-MEL">MEL</span></strong>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7">Develops in melanocytes (pigment cells). Most dangerous form of skin cancer; can metastasise if not caught early.</p>
+      </div>
+      <div class="pipeline-step animate-in" style="flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="step-icon" style="background:rgba(6,182,212,0.08);color:#06b6d4">🔬</div>
+          <strong>Basal Cell Carcinoma <span class="chip chip-BCC">BCC</span></strong>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7">Most common skin cancer worldwide. Slow-growing; rarely spreads but can cause significant local tissue damage.</p>
+      </div>
+      <div class="pipeline-step animate-in" style="flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="step-icon" style="background:rgba(249,115,22,0.08);color:#f97316">🔬</div>
+          <strong>Squamous Cell Carcinoma <span class="chip chip-SCC">SCC</span></strong>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7">Second most common. Arises from squamous cells in the outer skin layers. More likely to spread than BCC.</p>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /container -->
+
+<!-- ══════════════════════ LIGHTBOX ══════════════════════ -->
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <button class="lightbox-close" id="lb-close" aria-label="Close lightbox">✕</button>
+  <img id="lb-img" src="" alt="Skin lesion full view" />
+  <div class="lightbox-meta">
+    <h3 id="lb-title"></h3>
+    <p id="lb-meta"></p>
+  </div>
+</div>
+
+<!-- ══════════════════════ FOOTER ══════════════════════ -->
+<div class="container">
+  <footer>
+    <p>SkinCancer DWM · Skin Cancer Detection Warehouse &copy; 2026 · Cancer Boys</p>
+    <div class="footer-badges">
+      <span class="fbadge">MySQL</span>
+      <span class="fbadge">Python ETL</span>
+      <span class="fbadge">OpenCV</span>
+      <span class="fbadge">BeautifulSoup</span>
+      <span class="fbadge">TensorFlow</span>
+      <span class="fbadge">Flask</span>
+    </div>
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
