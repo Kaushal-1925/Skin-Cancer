@@ -27,7 +27,7 @@ def load_config():
         with open(CONFIG_FILE, "r") as f:
             return json.load(f)
     except Exception:
-        return {"tasks": [], "images_per_source": 5, "image_size": [224, 224]}
+        return {"tasks": [], "images_per_source": 5, "image_size": [64, 64]}
 
 PORT = int(os.getenv("PORT", 8080))
 
@@ -123,7 +123,7 @@ def api_predict():
     try:
         import cv2
         cfg = load_config()
-        img_size = tuple(cfg.get("image_size", [224, 224]))
+        img_size = (64, 64)
         data = np.frombuffer(file.read(), np.uint8)
         img = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE)
         if img is None:
@@ -164,7 +164,7 @@ def api_scrape():
     if not url: return jsonify({"error": "No URL provided"}), 400
 
     cfg = load_config()
-    img_size = tuple(cfg.get("image_size", [224, 224]))
+    img_size = (64, 64)
     max_images = 10
 
     try:

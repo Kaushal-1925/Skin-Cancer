@@ -8,6 +8,6 @@
     {"label": "SCC", "url": "https://www.bccancer.bc.ca/health-professionals/clinical-resources/skin-cancer-atlas/squamous-carcinoma"}
   ],
   "images_per_source": 5,
-  "image_size": [224, 224],
+  "image_size": [64, 64],
   "download_dir": "SkinWarehouse"
 }

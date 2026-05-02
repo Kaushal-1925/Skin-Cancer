@@ -20,9 +20,9 @@ MODEL_OUT   = os.path.join(BASE_DIR, "model.h5")
 # ── Load config ───────────────────────────────────────────
 with open(CONFIG_FILE) as f:
     cfg = json.load(f)
-IMG_SIZE = tuple(cfg.get("image_size", [224, 224]))
-EPOCHS   = 10 # Reduced for faster demo deployment
-BATCH_SIZE = 8
+IMG_SIZE = (64, 64) # Radically reduced for 512MB RAM
+EPOCHS   = 5
+BATCH_SIZE = 4
 
 # Supabase Config
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -73,22 +73,17 @@ def build_dataset(records):
     print(f"[✓] Dataset: {X.shape}")
     return X, y, labels
 
-# ── Build CNN model ───────────────────────────────────────
-def build_model(num_classes, input_shape=(224, 224, 1)):
+def build_model(num_classes, input_shape=(64, 64, 1)):
     import tensorflow as tf
     from tensorflow.keras import layers, models
+    import gc
+    gc.collect() # Free memory before model build
+    
     model = models.Sequential([
-        layers.Conv2D(32, (3,3), activation="relu", padding="same", input_shape=input_shape),
-        layers.BatchNormalization(),
+        layers.Conv2D(16, (3,3), activation="relu", input_shape=input_shape),
         layers.MaxPooling2D((2,2)),
-        layers.Dropout(0.25),
-        layers.Conv2D(64, (3,3), activation="relu", padding="same"),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2,2)),
-        layers.Dropout(0.25),
         layers.Flatten(),
-        layers.Dense(128, activation="relu"),
-        layers.Dropout(0.5),
+        layers.Dense(32, activation="relu"),
         layers.Dense(num_classes, activation="softmax"),
     ])
     model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
