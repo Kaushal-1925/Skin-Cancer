@@ -79,10 +79,10 @@ def get_records():
         rows = response.data
         # Ensure URLs are correct for the gallery
         for r in rows:
-            # If local_path is just a filename, it might be in Supabase Storage
             if r.get("local_path") and not r["local_path"].startswith("http"):
-                # Construct public URL for Supabase Storage
-                r["local_path"] = f"{SUPABASE_URL}/storage/v1/object/public/skin-warehouse/{r['local_path']}"
+                # Ensure no double slashes if SUPABASE_URL has a trailing slash
+                base_url = SUPABASE_URL.rstrip("/")
+                r["local_path"] = f"{base_url}/storage/v1/object/public/skin-warehouse/{r['local_path']}"
         return rows, "supabase"
     except Exception as e:
         print(f"[Supabase Error] {e}")
@@ -226,7 +226,8 @@ def api_scrape():
                     "local_path": filename
                 }).execute()
 
-                public_url = f"{SUPABASE_URL}/storage/v1/object/public/skin-warehouse/{filename}"
+                base_url = SUPABASE_URL.rstrip("/")
+                public_url = f"{base_url}/storage/v1/object/public/skin-warehouse/{filename}"
                 saved_images.append({"path": public_url, "source": img_url})
                 saved += 1
             except Exception as e:
