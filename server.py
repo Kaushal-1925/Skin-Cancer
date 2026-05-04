@@ -294,16 +294,6 @@ def api_scrape():
         })
     except Exception as e:
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
-ut for the process to avoid Render request timeout
-                subprocess.run([python, os.path.join(BASE_DIR, "train_cnn.py")], timeout=20)
-                reload_model()
-                retrained = True
-            except Exception as e:
-                print(f"Retrain error: {e}")
-
-        return jsonify({"images_found": len(img_tags), "saved": saved, "images": saved_images, "retrained": retrained})
-    except Exception as e:
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 @app.route("/")
 def index():
