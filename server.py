@@ -79,10 +79,18 @@ def get_records():
         rows = response.data
         # Ensure URLs are correct for the gallery
         for r in rows:
-            if r.get("local_path") and not r["local_path"].startswith("http"):
-                # Ensure no double slashes if SUPABASE_URL has a trailing slash
-                base_url = SUPABASE_URL.rstrip("/")
-                r["local_path"] = f"{base_url}/storage/v1/object/public/skin-warehouse/{r['local_path']}"
+            path = r.get("local_path", "")
+            if path:
+                # If it's a full URL with double slashes from old code, fix it
+                if "supabase.co//storage" in path:
+                    path = path.replace("supabase.co//storage", "supabase.co/storage")
+                
+                # If it's just a filename, build the full public URL
+                if not path.startswith("http"):
+                    base_url = SUPABASE_URL.rstrip("/")
+                    path = f"{base_url}/storage/v1/object/public/skin-warehouse/{path}"
+                
+                r["local_path"] = path
         return rows, "supabase"
     except Exception as e:
         print(f"[Supabase Error] {e}")
@@ -199,10 +207,32 @@ def api_scrape():
                 continue
 
             try:
+                # ── Selectivity Checks ────────────────────────
+                # Skip if URL contains generic non-skin keywords
+                skip_keywords = ["icon", "logo", "avatar", "banner", "button", "ad", "social", "flag"]
+                if any(k in img_url.lower() for k in skip_keywords):
+                    continue
+                
+                # Skip based on alt text if available
+                alt_text = (img_tag.get("alt") or "").lower()
+                if alt_text and not any(k in alt_text for k in ["skin", "lesion", "cancer", "mole", "melanoma", "bcc", "scc", "atlas", "derm", "medical"]):
+                    # If alt text exists but doesn't have relevant keywords, skip it
+                    continue
+
                 r = req.get(img_url, timeout=10)
                 nparr = np.frombuffer(r.content, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 if img is None: continue
+
+                # Skip if image is too small (likely an icon or thumbnail)
+                h, w = img.shape[:2]
+                if h < 150 or w < 150:
+                    continue
+                
+                # Skip if aspect ratio is too extreme (skin lesions are usually roughly square)
+                ratio = w / h if h > 0 else 0
+                if ratio < 0.3 or ratio > 3.0:
+                    continue
 
                 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 img_resized = cv2.resize(img_gray, img_size)

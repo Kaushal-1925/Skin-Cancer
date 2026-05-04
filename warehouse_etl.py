@@ -43,10 +43,25 @@ def run_etl():
                 if not any(ext in img_url.lower() for ext in [".jpg", ".jpeg"]): continue
 
                 try:
+                    # ── Selectivity Checks ────────────────────────
+                    skip_keywords = ["icon", "logo", "avatar", "banner", "button", "ad", "social", "flag"]
+                    if any(k in img_url.lower() for k in skip_keywords):
+                        continue
+                    
+                    alt_text = (img_tag.get("alt") or "").lower()
+                    if alt_text and not any(k in alt_text for k in ["skin", "lesion", "cancer", "mole", "melanoma", "bcc", "scc", "atlas", "derm", "medical"]):
+                        continue
+
                     r = requests.get(img_url, timeout=10)
                     nparr = np.frombuffer(r.content, np.uint8)
                     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                     if img is None: continue
+
+                    # Skip if too small or extreme aspect ratio
+                    h, w = img.shape[:2]
+                    if h < 150 or w < 150: continue
+                    ratio = w / h if h > 0 else 0
+                    if ratio < 0.3 or ratio > 3.0: continue
 
                     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                     img_resized = cv2.resize(img_gray, IMAGE_SIZE)
