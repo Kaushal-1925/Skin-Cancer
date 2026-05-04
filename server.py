@@ -204,42 +204,53 @@ def api_scrape():
 
         for img_tag in img_tags:
             if saved >= max_images: break
-            img_url = img_tag.get("src") or img_tag.get("data-src", "")
+            
+            # Try multiple attributes for the image URL
+            img_url = (
+                img_tag.get("data-src") or 
+                img_tag.get("data-original") or 
+                img_tag.get("src") or 
+                ""
+            )
+            
+            # Handle srcset (take the first URL)
+            srcset = img_tag.get("srcset", "")
+            if not img_url and srcset:
+                img_url = srcset.split(",")[0].split(" ")[0]
+
             if not img_url: continue
             
-            # Resolve relative URLs
             if not img_url.startswith("http"):
                 img_url = req.compat.urljoin(url, img_url)
             
-            # Extension check (Be more lenient)
-            exts = [".jpg", ".jpeg", ".png", ".webp", "format=jpg", "format=png"]
-            if not any(ext in img_url.lower() for ext in exts):
-                debug_log.append(f"Skip (ext): {img_url[:40]}")
+            # Very lenient extension check
+            if not any(ext in img_url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp", "format="]):
+                debug_log.append(f"Skip (ext): {img_url[:30]}")
                 continue
 
             try:
-                # ── Selectivity Checks ────────────────────────
-                skip_keywords = ["avatar", "ad", "social", "flag", "pixel", "banner"]
-                if any(k in img_url.lower() for k in skip_keywords):
-                    debug_log.append(f"Skip (keyword): {img_url[:40]}")
-                    continue
+                # ── Selectivity Checks (DISABLED for Debug) ────────────────────────
+                # skip_keywords = ["avatar", "ad", "social", "flag", "pixel", "banner"]
+                # if any(k in img_url.lower() for k in skip_keywords):
+                #     debug_log.append(f"Skip (keyword): {img_url[:40]}")
+                #     continue
                 
                 # Download image with headers
                 r = req.get(img_url, headers=headers, timeout=10)
                 if r.status_code != 200:
-                    debug_log.append(f"Skip (HTTP {r.status_code}): {img_url[:40]}")
+                    debug_log.append(f"Skip (HTTP {r.status_code}): {img_url[:30]}")
                     continue
                 
                 nparr = np.frombuffer(r.content, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 if img is None:
-                    debug_log.append(f"Skip (decode fail): {img_url[:40]}")
+                    debug_log.append(f"Skip (decode fail): {img_url[:30]}")
                     continue
 
-                h, w = img.shape[:2]
-                if h < 50 or w < 50:
-                    debug_log.append(f"Skip (too small {w}x{h}): {img_url[:40]}")
-                    continue
+                # h, w = img.shape[:2]
+                # if h < 50 or w < 50:
+                #     debug_log.append(f"Skip (too small {w}x{h}): {img_url[:40]}")
+                #     continue
                 
                 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 img_resized = cv2.resize(img_gray, img_size)
