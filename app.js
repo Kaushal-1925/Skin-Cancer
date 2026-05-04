@@ -330,6 +330,8 @@ function initScraper() {
       }
 
       const data = await res.json();
+      if (data.debug) { console.log("[Scraper Debug]", data.debug); }
+
       if (data.error) { log(`[✗] Error: ${data.error}`); }
       else {
         log(`[✓] Scraped ${data.images_found} images from page`);

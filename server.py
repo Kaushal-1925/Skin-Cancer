@@ -186,12 +186,12 @@ def api_scrape():
         img_size = (64, 64)
         max_images = 10
 
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        }
+
         try:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-            }
             resp = req.get(url, headers=headers, timeout=15)
             soup = BeautifulSoup(resp.text, "html.parser")
             img_tags = soup.find_all("img")
@@ -200,76 +200,101 @@ def api_scrape():
 
         saved_images = []
         saved = 0
+        debug_log = []
 
         for img_tag in img_tags:
             if saved >= max_images: break
             img_url = img_tag.get("src") or img_tag.get("data-src", "")
             if not img_url: continue
+            
+            # Resolve relative URLs
             if not img_url.startswith("http"):
                 img_url = req.compat.urljoin(url, img_url)
-            if not any(ext in img_url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+            
+            # Extension check (Be more lenient)
+            exts = [".jpg", ".jpeg", ".png", ".webp", "format=jpg", "format=png"]
+            if not any(ext in img_url.lower() for ext in exts):
+                debug_log.append(f"Skip (ext): {img_url[:40]}")
                 continue
 
             try:
                 # ── Selectivity Checks ────────────────────────
-                # Skip if URL contains generic non-skin keywords
-                skip_keywords = ["icon", "logo", "avatar", "banner", "button", "ad", "social", "flag", "nav", "menu"]
+                skip_keywords = ["avatar", "ad", "social", "flag", "pixel", "banner"]
                 if any(k in img_url.lower() for k in skip_keywords):
+                    debug_log.append(f"Skip (keyword): {img_url[:40]}")
                     continue
                 
-                # Download image with headers (required by Wikimedia)
+                # Download image with headers
                 r = req.get(img_url, headers=headers, timeout=10)
-                if r.status_code != 200: continue
+                if r.status_code != 200:
+                    debug_log.append(f"Skip (HTTP {r.status_code}): {img_url[:40]}")
+                    continue
                 
                 nparr = np.frombuffer(r.content, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                if img is None: continue
+                if img is None:
+                    debug_log.append(f"Skip (decode fail): {img_url[:40]}")
+                    continue
 
-                # Skip if image is too small (lowered to 80px for thumbnails)
                 h, w = img.shape[:2]
-                if h < 80 or w < 80:
+                if h < 50 or w < 50:
+                    debug_log.append(f"Skip (too small {w}x{h}): {img_url[:40]}")
                     continue
                 
-                # Skip if aspect ratio is too extreme
-                ratio = w / h if h > 0 else 0
-                if ratio < 0.2 or ratio > 5.0:
-                    continue
-
                 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 img_resized = cv2.resize(img_gray, img_size)
-                
                 _, buffer = cv2.imencode('.jpg', img_resized)
                 img_bytes = buffer.tobytes()
 
                 uid = os.urandom(2).hex()
                 filename = f"{label}_{saved}_{uid}.jpg"
 
-                # Upload to Supabase
-                supabase.storage.from_("skin-warehouse").upload(
-                    path=filename,
-                    file=img_bytes,
-                    file_options={"content-type": "image/jpeg"}
-                )
+                try:
+                    # Upload to Supabase
+                    supabase.storage.from_("skin-warehouse").upload(
+                        path=filename,
+                        file=img_bytes,
+                        file_options={"content-type": "image/jpeg"}
+                    )
 
-                supabase.table("fact_lesions").insert({
-                    "source_url": img_url,
-                    "label": label,
-                    "local_path": filename
-                }).execute()
+                    supabase.table("fact_lesions").insert({
+                        "source_url": img_url,
+                        "label": label,
+                        "local_path": filename
+                    }).execute()
+                    
+                    base_url = SUPABASE_URL.rstrip("/")
+                    public_url = f"{base_url}/storage/v1/object/public/skin-warehouse/{filename}"
+                    saved_images.append({"path": public_url, "source": img_url})
+                    saved += 1
+                except Exception as db_err:
+                    debug_log.append(f"Storage Error: {str(db_err)}")
+                    continue
 
-                base_url = SUPABASE_URL.rstrip("/")
-                public_url = f"{base_url}/storage/v1/object/public/skin-warehouse/{filename}"
-                saved_images.append({"path": public_url, "source": img_url})
-                saved += 1
             except Exception as e:
-                print(f"Error saving image: {e}")
+                debug_log.append(f"Error: {str(e)[:50]}")
                 continue
 
         retrained = False
         if retrain and saved > 0:
             try:
                 python = sys.executable
-                # Use a smaller timeout for the process to avoid Render request timeout
+                subprocess.run([python, os.path.join(BASE_DIR, "train_cnn.py")], timeout=20)
+                reload_model()
+                retrained = True
+            except Exception as e:
+                print(f"Retrain error: {e}")
+
+        return jsonify({
+            "images_found": len(img_tags), 
+            "saved": saved, 
+            "images": saved_images, 
+            "retrained": retrained,
+            "debug": debug_log[:15]
+        })
+    except Exception as e:
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+ut for the process to avoid Render request timeout
                 subprocess.run([python, os.path.join(BASE_DIR, "train_cnn.py")], timeout=20)
                 reload_model()
                 retrained = True
