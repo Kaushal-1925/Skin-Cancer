@@ -170,7 +170,7 @@ def api_predict():
 @app.route("/api/scrape", methods=["POST"])
 def api_scrape():
     try:
-        import cv2, requests as req
+        import requests as req
         from bs4 import BeautifulSoup
     except ImportError as e:
         return jsonify({"error": f"Missing dependency: {e}"}), 500
