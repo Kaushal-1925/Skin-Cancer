@@ -290,12 +290,11 @@ def api_scrape():
         if saved == 0:
             # If the actual scrape failed (due to blocks/timeouts), inject fake data to keep the demo moving
             saved = 2
-            dummy_1 = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Melanoma.jpg/300px-Melanoma.jpg"
-            dummy_2 = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Melanoma_2.jpg/300px-Melanoma_2.jpg"
+            dummy_img = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23e0e7ff'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='16' fill='%236366f1'%3EClinical Record%3C/text%3E%3C/svg%3E"
             
             saved_images = [
-                {"path": dummy_1, "source": url},
-                {"path": dummy_2, "source": url}
+                {"path": dummy_img, "source": url},
+                {"path": dummy_img, "source": url}
             ]
             
             # Insert dummy records into DB so they show in the gallery
