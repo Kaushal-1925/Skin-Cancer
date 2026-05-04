@@ -213,29 +213,26 @@ def api_scrape():
             try:
                 # ── Selectivity Checks ────────────────────────
                 # Skip if URL contains generic non-skin keywords
-                skip_keywords = ["icon", "logo", "avatar", "banner", "button", "ad", "social", "flag"]
+                skip_keywords = ["icon", "logo", "avatar", "banner", "button", "ad", "social", "flag", "nav", "menu"]
                 if any(k in img_url.lower() for k in skip_keywords):
                     continue
                 
-                # Skip based on alt text if available
-                alt_text = (img_tag.get("alt") or "").lower()
-                if alt_text and not any(k in alt_text for k in ["skin", "lesion", "cancer", "mole", "melanoma", "bcc", "scc", "atlas", "derm", "medical"]):
-                    # If alt text exists but doesn't have relevant keywords, skip it
-                    continue
-
-                r = req.get(img_url, timeout=10)
+                # Download image with headers (required by Wikimedia)
+                r = req.get(img_url, headers=headers, timeout=10)
+                if r.status_code != 200: continue
+                
                 nparr = np.frombuffer(r.content, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 if img is None: continue
 
-                # Skip if image is too small (likely an icon or thumbnail)
+                # Skip if image is too small (lowered to 80px for thumbnails)
                 h, w = img.shape[:2]
-                if h < 150 or w < 150:
+                if h < 80 or w < 80:
                     continue
                 
-                # Skip if aspect ratio is too extreme (skin lesions are usually roughly square)
+                # Skip if aspect ratio is too extreme
                 ratio = w / h if h > 0 else 0
-                if ratio < 0.3 or ratio > 3.0:
+                if ratio < 0.2 or ratio > 5.0:
                     continue
 
                 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
