@@ -338,7 +338,11 @@ function initScraper() {
         log(`[✓] Done. Refreshing dashboard…`);
         await loadData();
       }
-    } catch(e) { log(`[✗] Server error: ${e.message}`); }
+    } catch(e) { 
+      console.error("[Scraper Error]", e);
+      log(`[✗] Network/Server error. This usually happens if Render is still deploying or the request timed out.`); 
+      log(`[!] Tip: Try again in a minute, or uncheck 'Retrain CNN' to speed up the process.`);
+    }
     scrapeBtn.disabled = false; scrapeBtn.textContent = "🔍 Scrape";
   });
 }

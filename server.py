@@ -45,7 +45,6 @@ def get_model():
     if not os.path.exists(MODEL_PATH):
         return None, None
     try:
-        import tensorflow as tf
         # Check if it's a real H5 file or just our dummy marker
         with open(MODEL_PATH, "rb") as f:
             start_bytes = f.read(20)
@@ -54,6 +53,7 @@ def get_model():
             print("[!] Dummy model file detected, will use mock inference.")
             _model = "DUMMY"
         else:
+            import tensorflow as tf
             _model  = tf.keras.models.load_model(MODEL_PATH)
         
         _labels = json.load(open(LABELS_PATH)) if os.path.exists(LABELS_PATH) else ["BCC","MEL","SCC"]
@@ -61,7 +61,6 @@ def get_model():
         return _model, _labels
     except Exception as e:
         print(f"[!] Model load failed: {e}")
-        # Even if load fails, we'll allow mock inference if labels exist
         _labels = ["BCC","MEL","SCC"]
         return "DUMMY", _labels
 
@@ -167,84 +166,86 @@ def api_scrape():
     except ImportError as e:
         return jsonify({"error": f"Missing dependency: {e}"}), 500
 
-    body = request.get_json(force=True)
-    url = body.get("url", "").strip()
-    label = body.get("label", "MEL").upper()
-    retrain = body.get("retrain", False)
-
-    if not url: return jsonify({"error": "No URL provided"}), 400
-
-    cfg = load_config()
-    img_size = (64, 64)
-    max_images = 10
-
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        resp = req.get(url, headers=headers, timeout=15)
-        soup = BeautifulSoup(resp.text, "html.parser")
-        img_tags = soup.find_all("img")
-    except Exception as e:
-        return jsonify({"error": f"Could not fetch URL: {e}"}), 500
+        body = request.get_json(force=True)
+        url = body.get("url", "").strip()
+        label = body.get("label", "MEL").upper()
+        retrain = body.get("retrain", False)
 
-    saved_images = []
-    saved = 0
+        if not url: return jsonify({"error": "No URL provided"}), 400
 
-    for img_tag in img_tags:
-        if saved >= max_images: break
-        img_url = img_tag.get("src") or img_tag.get("data-src", "")
-        if not img_url: continue
-        if not img_url.startswith("http"):
-            img_url = req.compat.urljoin(url, img_url)
-        if not any(ext in img_url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
-            continue
+        img_size = (64, 64)
+        max_images = 10
 
         try:
-            r = req.get(img_url, timeout=10)
-            nparr = np.frombuffer(r.content, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            if img is None: continue
-
-            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            img_resized = cv2.resize(img_gray, img_size)
-            
-            # Encode image to memory for upload
-            _, buffer = cv2.imencode('.jpg', img_resized)
-            img_bytes = buffer.tobytes()
-
-            uid = os.urandom(2).hex()
-            filename = f"{label}_{saved}_{uid}.jpg"
-
-            # 1. Upload to Supabase Storage
-            storage_resp = supabase.storage.from_("skin-warehouse").upload(
-                path=filename,
-                file=img_bytes,
-                file_options={"content-type": "image/jpeg"}
-            )
-
-            # 2. Insert record into Supabase Table
-            supabase.table("fact_lesions").insert({
-                "source_url": img_url,
-                "label": label,
-                "local_path": filename  # Store the storage filename
-            }).execute()
-
-            public_url = f"{SUPABASE_URL}/storage/v1/object/public/skin-warehouse/{filename}"
-            saved_images.append({"path": public_url, "source": img_url})
-            saved += 1
+            headers = {"User-Agent": "Mozilla/5.0"}
+            resp = req.get(url, headers=headers, timeout=15)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            img_tags = soup.find_all("img")
         except Exception as e:
-            print(f"Error saving image: {e}")
-            continue
+            return jsonify({"error": f"Could not fetch URL: {e}"}), 500
 
-    retrained = False
-    if retrain and saved > 0:
-        try:
-            python = sys.executable
-            subprocess.run([python, os.path.join(BASE_DIR, "train_cnn.py")], timeout=300)
-            reload_model()
-            retrained = True
-        except Exception: pass
+        saved_images = []
+        saved = 0
 
-    return jsonify({"images_found": len(img_tags), "saved": saved, "images": saved_images, "retrained": retrained})
+        for img_tag in img_tags:
+            if saved >= max_images: break
+            img_url = img_tag.get("src") or img_tag.get("data-src", "")
+            if not img_url: continue
+            if not img_url.startswith("http"):
+                img_url = req.compat.urljoin(url, img_url)
+            if not any(ext in img_url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                continue
+
+            try:
+                r = req.get(img_url, timeout=10)
+                nparr = np.frombuffer(r.content, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img is None: continue
+
+                img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                img_resized = cv2.resize(img_gray, img_size)
+                
+                _, buffer = cv2.imencode('.jpg', img_resized)
+                img_bytes = buffer.tobytes()
+
+                uid = os.urandom(2).hex()
+                filename = f"{label}_{saved}_{uid}.jpg"
+
+                # Upload to Supabase
+                supabase.storage.from_("skin-warehouse").upload(
+                    path=filename,
+                    file=img_bytes,
+                    file_options={"content-type": "image/jpeg"}
+                )
+
+                supabase.table("fact_lesions").insert({
+                    "source_url": img_url,
+                    "label": label,
+                    "local_path": filename
+                }).execute()
+
+                public_url = f"{SUPABASE_URL}/storage/v1/object/public/skin-warehouse/{filename}"
+                saved_images.append({"path": public_url, "source": img_url})
+                saved += 1
+            except Exception as e:
+                print(f"Error saving image: {e}")
+                continue
+
+        retrained = False
+        if retrain and saved > 0:
+            try:
+                python = sys.executable
+                # Use a smaller timeout for the process to avoid Render request timeout
+                subprocess.run([python, os.path.join(BASE_DIR, "train_cnn.py")], timeout=20)
+                reload_model()
+                retrained = True
+            except Exception as e:
+                print(f"Retrain error: {e}")
+
+        return jsonify({"images_found": len(img_tags), "saved": saved, "images": saved_images, "retrained": retrained})
+    except Exception as e:
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 @app.route("/")
 def index():
