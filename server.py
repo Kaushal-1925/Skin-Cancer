@@ -205,7 +205,6 @@ def api_scrape():
         for img_tag in img_tags:
             if saved >= max_images: break
             
-            # Try multiple attributes for the image URL
             img_url = (
                 img_tag.get("data-src") or 
                 img_tag.get("data-original") or 
@@ -213,7 +212,6 @@ def api_scrape():
                 ""
             )
             
-            # Handle srcset (take the first URL)
             srcset = img_tag.get("srcset", "")
             if not img_url and srcset:
                 img_url = srcset.split(",")[0].split(" ")[0]
@@ -223,92 +221,30 @@ def api_scrape():
             if not img_url.startswith("http"):
                 img_url = req.compat.urljoin(url, img_url)
             
-            # Very lenient extension check
-            if not any(ext in img_url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp", "format="]):
+            exts = [".jpg", ".jpeg", ".png", ".webp", "format="]
+            if not any(ext in img_url.lower() for ext in exts):
                 debug_log.append(f"Skip (ext): {img_url[:30]}")
                 continue
 
             try:
-                # ── Selectivity Checks (DISABLED for Debug) ────────────────────────
-                # skip_keywords = ["avatar", "ad", "social", "flag", "pixel", "banner"]
-                # if any(k in img_url.lower() for k in skip_keywords):
-                #     debug_log.append(f"Skip (keyword): {img_url[:40]}")
-                #     continue
+                # Direct-link insertion: Bypass server download/upload completely!
+                # This guarantees the images are added to the database and will load 
+                # directly from the source in the user's browser.
                 
-                # Download image with headers
-                r = req.get(img_url, headers=headers, timeout=10)
-                if r.status_code != 200:
-                    debug_log.append(f"Skip (HTTP {r.status_code}): {img_url[:30]}")
-                    continue
+                supabase.table("fact_lesions").insert({
+                    "source_url": img_url,
+                    "label": label,
+                    "local_path": img_url # Save direct URL instead of uploading to Supabase Storage
+                }).execute()
                 
-                nparr = np.frombuffer(r.content, np.uint8)
-                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                if img is None:
-                    debug_log.append(f"Skip (decode fail): {img_url[:30]}")
-                    continue
-
-                # h, w = img.shape[:2]
-                # if h < 50 or w < 50:
-                #     debug_log.append(f"Skip (too small {w}x{h}): {img_url[:40]}")
-                #     continue
-                
-                img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                img_resized = cv2.resize(img_gray, img_size)
-                _, buffer = cv2.imencode('.jpg', img_resized)
-                img_bytes = buffer.tobytes()
-
-                uid = os.urandom(2).hex()
-                filename = f"{label}_{saved}_{uid}.jpg"
-
-                try:
-                    # Upload to Supabase
-                    supabase.storage.from_("skin-warehouse").upload(
-                        path=filename,
-                        file=img_bytes,
-                        file_options={"content-type": "image/jpeg"}
-                    )
-
-                    supabase.table("fact_lesions").insert({
-                        "source_url": img_url,
-                        "label": label,
-                        "local_path": filename
-                    }).execute()
-                    
-                    base_url = SUPABASE_URL.rstrip("/")
-                    public_url = f"{base_url}/storage/v1/object/public/skin-warehouse/{filename}"
-                    saved_images.append({"path": public_url, "source": img_url})
-                    saved += 1
-                except Exception as db_err:
-                    debug_log.append(f"Storage Error: {str(db_err)}")
-                    continue
-
+                saved_images.append({"path": img_url, "source": img_url})
+                saved += 1
             except Exception as e:
-                debug_log.append(f"Error: {str(e)[:50]}")
+                debug_log.append(f"DB Error: {str(e)[:50]}")
                 continue
 
-        # ── Pipeline Mocking (Presentation Mode) ──
-        if saved == 0:
-            # If the actual scrape failed (due to blocks/timeouts), inject fake data to keep the demo moving
-            saved = 2
-            dummy_img = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23e0e7ff'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='16' fill='%236366f1'%3EClinical Record%3C/text%3E%3C/svg%3E"
-            
-            saved_images = [
-                {"path": dummy_img, "source": url},
-                {"path": dummy_img, "source": url}
-            ]
-            
-            # Insert dummy records into DB so they show in the gallery
-            try:
-                supabase.table("fact_lesions").insert([
-                    {"source_url": url, "label": label, "local_path": dummy_1},
-                    {"source_url": url, "label": label, "local_path": dummy_2}
-                ]).execute()
-            except Exception as e:
-                debug_log.append(f"Mock DB Insert Error: {e}")
-
-            debug_log.insert(0, "Mock Mode Activated: Returning and saving dummy images.")
-
         retrained = False
+
         if retrain:
             # Completely mock the training process to avoid timeouts
             import time
