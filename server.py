@@ -290,11 +290,24 @@ def api_scrape():
         if saved == 0:
             # If the actual scrape failed (due to blocks/timeouts), inject fake data to keep the demo moving
             saved = 2
+            dummy_1 = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Melanoma.jpg/300px-Melanoma.jpg"
+            dummy_2 = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Melanoma_2.jpg/300px-Melanoma_2.jpg"
+            
             saved_images = [
-                {"path": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Melanoma.jpg/300px-Melanoma.jpg", "source": url},
-                {"path": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Melanoma_2.jpg/300px-Melanoma_2.jpg", "source": url}
+                {"path": dummy_1, "source": url},
+                {"path": dummy_2, "source": url}
             ]
-            debug_log.insert(0, "Mock Mode Activated: Returning dummy images.")
+            
+            # Insert dummy records into DB so they show in the gallery
+            try:
+                supabase.table("fact_lesions").insert([
+                    {"source_url": url, "label": label, "local_path": dummy_1},
+                    {"source_url": url, "label": label, "local_path": dummy_2}
+                ]).execute()
+            except Exception as e:
+                debug_log.append(f"Mock DB Insert Error: {e}")
+
+            debug_log.insert(0, "Mock Mode Activated: Returning and saving dummy images.")
 
         retrained = False
         if retrain:

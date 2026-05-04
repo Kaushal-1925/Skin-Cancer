@@ -166,7 +166,8 @@ function renderGallery() {
   if (!data.length) { galleryGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:60px 0">No images for this filter.</div>`; return; }
   galleryGrid.innerHTML = data.map(r => {
     const fname = r.localPath.split("/").pop();
-    return `<div class="gallery-card animate-in" tabindex="0" data-id="${r.id}" data-path="${r.localPath}" data-label="${r.label}"><div class="gallery-img-wrap"><img src="${r.localPath}" alt="${r.label} #${r.id}" loading="lazy" onerror="this.parentElement.innerHTML='<div style=height:100%;display:grid;place-items:center;color:var(--text-muted);font-size:1.5rem>✕</div>'"></div><div class="gallery-card-info"><div class="gallery-card-id">${fname}</div><div class="gallery-card-bottom"><span class="chip chip-${r.label}">${r.label}</span><span style="font-size:.7rem;color:var(--text-muted)">#${r.id}</span></div></div></div>`;
+    const fallbackImg = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Melanoma.jpg/300px-Melanoma.jpg";
+    return `<div class="gallery-card animate-in" tabindex="0" data-id="${r.id}" data-path="${r.localPath}" data-label="${r.label}"><div class="gallery-img-wrap"><img src="${r.localPath}" alt="${r.label} #${r.id}" loading="lazy" onerror="this.onerror=null; this.src='${fallbackImg}'"></div><div class="gallery-card-info"><div class="gallery-card-id">${fname}</div><div class="gallery-card-bottom"><span class="chip chip-${r.label}">${r.label}</span><span style="font-size:.7rem;color:var(--text-muted)">#${r.id}</span></div></div></div>`;
   }).join("");
   galleryGrid.querySelectorAll(".gallery-card").forEach(card => {
     const open = () => openLightbox(card.dataset.id, card.dataset.path, card.dataset.label);
