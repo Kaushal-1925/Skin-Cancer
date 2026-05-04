@@ -7,7 +7,6 @@ opencv-python-headless
 numpy
 pandas
 python-dotenv
-tensorflow
 supabase
 gunicorn
 python-magic-bin; platform_system == 'Windows'

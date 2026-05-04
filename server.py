@@ -53,8 +53,9 @@ def get_model():
             print("[!] Dummy model file detected, will use mock inference.")
             _model = "DUMMY"
         else:
-            import tensorflow as tf
-            _model  = tf.keras.models.load_model(MODEL_PATH)
+            # Real model loading disabled for Free Tier optimization
+            print("[!] Real model file found, but mock inference is prioritized.")
+            _model = "DUMMY"
         
         _labels = json.load(open(LABELS_PATH)) if os.path.exists(LABELS_PATH) else ["BCC","MEL","SCC"]
         print(f"[✓] Model status: {_model} — classes: {_labels}")

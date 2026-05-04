@@ -4,9 +4,6 @@ Fetches data from Supabase Table and images from Supabase Storage/URLs.
 """
 
 import os, sys, json, csv, warnings, requests
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-warnings.filterwarnings("ignore")
-
 import numpy as np
 import cv2
 from dotenv import load_dotenv
@@ -73,21 +70,7 @@ def build_dataset(records):
     print(f"[✓] Dataset: {X.shape}")
     return X, y, labels
 
-def build_model(num_classes, input_shape=(64, 64, 1)):
-    import tensorflow as tf
-    from tensorflow.keras import layers, models
-    import gc
-    gc.collect() # Free memory before model build
-    
-    model = models.Sequential([
-        layers.Conv2D(16, (3,3), activation="relu", input_shape=input_shape),
-        layers.MaxPooling2D((2,2)),
-        layers.Flatten(),
-        layers.Dense(32, activation="relu"),
-        layers.Dense(num_classes, activation="softmax"),
-    ])
-    model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    return model
+# build_model removed
 
 def train():
     print("[*] Starting CNN Training Pipeline...")
