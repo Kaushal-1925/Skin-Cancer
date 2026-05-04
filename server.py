@@ -17,9 +17,9 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 MODEL_PATH  = os.path.join(BASE_DIR, "model.h5")
 LABELS_PATH = os.path.join(BASE_DIR, "model_labels.json")
 
-# Supabase Config
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# Supabase Config — hardcoded defaults for deployment (env vars override if present)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://fjlvsjasgefcckimfqnq.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbHZzamFzZ2VmY2NraW1mcW5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3Mzg0NDksImV4cCI6MjA5MzMxNDQ0OX0.NVDcvOtQB83omv-DkTeEf_O5q_Jp31z7_Q5tlK0Y_iI")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_config():
@@ -72,30 +72,51 @@ def reload_model():
     return get_model()
 
 # ── Data helpers ──────────────────────────────────────────
+CSV_PATH = os.path.join(BASE_DIR, "SkinWarehouse_Registry.csv")
+
 def get_records():
-    """Fetch all records from Supabase."""
+    """Fetch all records from Supabase first, fall back to local CSV."""
+    
+    # Try Supabase
     try:
         response = supabase.table("fact_lesions").select("*").order("id").execute()
         rows = response.data
-        # Ensure URLs are correct for the gallery
-        for r in rows:
-            path = r.get("local_path", "")
-            if path:
-                # If it's a full URL with double slashes from old code, fix it
-                if "supabase.co//storage" in path:
-                    path = path.replace("supabase.co//storage", "supabase.co/storage")
-                
-                # If it's just a filename, build the full public URL
-                if not path.startswith("http"):
-                    base_url = SUPABASE_URL.rstrip("/")
-                    path = f"{base_url}/storage/v1/object/public/skin-warehouse/{path}"
-                
-                r["local_path"] = path
-        return rows, "supabase"
+        if rows and len(rows) > 0:
+            for r in rows:
+                path = r.get("local_path", "")
+                if path:
+                    if "supabase.co//storage" in path:
+                        path = path.replace("supabase.co//storage", "supabase.co/storage")
+                    if not path.startswith("http"):
+                        base_url = SUPABASE_URL.rstrip("/")
+                        path = f"{base_url}/storage/v1/object/public/skin-warehouse/{path}"
+                    r["local_path"] = path
+            return rows, "supabase"
     except Exception as e:
         print(f"[Supabase Error] {e}")
-        # Fallback to local CSV if needed
-        return [], "error"
+
+    # Fallback to local CSV + local image files
+    try:
+        if os.path.exists(CSV_PATH):
+            with open(CSV_PATH, "r") as f:
+                reader = csv.DictReader(f)
+                rows = []
+                for row in reader:
+                    # LocalPath in CSV is like "SkinWarehouse/MEL_0_1225.jpg"
+                    # This is served directly by Flask's static_files route
+                    local_path = row.get("LocalPath", "")
+                    rows.append({
+                        "id": row.get("id", ""),
+                        "label": row.get("Label", ""),
+                        "local_path": f"/{local_path}" if local_path else "",
+                        "source_url": row.get("SourceURL", ""),
+                        "created_at": row.get("CreatedDate", "")
+                    })
+                return rows, "csv"
+    except Exception as e:
+        print(f"[CSV Error] {e}")
+
+    return [], "error"
 
 # ── API: records ───────────────────────────────────────────
 @app.route("/api/records")
