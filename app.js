@@ -166,7 +166,7 @@ function renderGallery() {
   if (!data.length) { galleryGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:60px 0">No images for this filter.</div>`; return; }
   galleryGrid.innerHTML = data.map(r => {
     const fname = r.localPath.split("/").pop();
-    const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23e0e7ff'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='16' fill='%236366f1'%3EClinical Record%3C/text%3E%3C/svg%3E";
+    const fallbackImg = "data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 200%27%3E%3Crect width=%27200%27 height=%27200%27 fill=%27%23e0e7ff%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 dominant-baseline=%27middle%27 font-family=%27sans-serif%27 font-size=%2716%27 fill=%27%236366f1%27%3EClinical Record%3C/text%3E%3C/svg%3E";
     return `<div class="gallery-card animate-in" tabindex="0" data-id="${r.id}" data-path="${r.localPath}" data-label="${r.label}"><div class="gallery-img-wrap"><img src="${r.localPath}" alt="${r.label} #${r.id}" loading="lazy" onerror="this.onerror=null; this.src='${fallbackImg}'"></div><div class="gallery-card-info"><div class="gallery-card-id">${fname}</div><div class="gallery-card-bottom"><span class="chip chip-${r.label}">${r.label}</span><span style="font-size:.7rem;color:var(--text-muted)">#${r.id}</span></div></div></div>`;
   }).join("");
   galleryGrid.querySelectorAll(".gallery-card").forEach(card => {
@@ -406,7 +406,7 @@ function renderAllImages() {
   const grid = $("all-images-grid");
   grid.innerHTML = data.map(r => {
     const fname = r.localPath.split("/").pop();
-    const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23e0e7ff'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='16' fill='%236366f1'%3EClinical Record%3C/text%3E%3C/svg%3E";
+    const fallbackImg = "data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 200 200%27%3E%3Crect width=%27200%27 height=%27200%27 fill=%27%23e0e7ff%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 dominant-baseline=%27middle%27 font-family=%27sans-serif%27 font-size=%2716%27 fill=%27%236366f1%27%3EClinical Record%3C/text%3E%3C/svg%3E";
     return `<div class="gallery-card animate-in" tabindex="0" data-id="${r.id}" data-path="${r.localPath}" data-label="${r.label}"><div class="gallery-img-wrap"><img src="${r.localPath}" alt="${r.label} #${r.id}" loading="lazy" onerror="this.onerror=null; this.src='${fallbackImg}'"></div><div class="gallery-card-info"><div class="gallery-card-id">${fname}</div><div class="gallery-card-bottom"><span class="chip chip-${r.label}">${r.label}</span><span style="font-size:.7rem;color:var(--text-muted)">#${r.id}</span></div></div></div>`;
   }).join("");
   grid.querySelectorAll(".gallery-card").forEach(card => {
