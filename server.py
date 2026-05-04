@@ -227,20 +227,42 @@ def api_scrape():
                 continue
 
             try:
-                # Direct-link insertion: Bypass server download/upload completely!
-                # This guarantees the images are added to the database and will load 
-                # directly from the source in the user's browser.
+                # 1. Download raw image bytes (Bypasses cv2 entirely)
+                headers = {"User-Agent": "Mozilla/5.0"}
+                r = req.get(img_url, headers=headers, timeout=10)
+                if r.status_code != 200:
+                    continue
                 
+                img_bytes = r.content
+                uid = os.urandom(4).hex()
+                # Determine extension roughly
+                ext = ".jpg"
+                if "png" in img_url.lower(): ext = ".png"
+                elif "webp" in img_url.lower(): ext = ".webp"
+                
+                filename = f"{label}_{saved}_{uid}{ext}"
+
+                # 2. Upload raw bytes to Supabase Storage
+                supabase.storage.from_("skin-warehouse").upload(
+                    path=filename,
+                    file=img_bytes,
+                    file_options={"content-type": f"image/{ext.strip('.')}"}
+                )
+
+                # 3. Save reference in database
                 supabase.table("fact_lesions").insert({
                     "source_url": img_url,
                     "label": label,
-                    "local_path": img_url # Save direct URL instead of uploading to Supabase Storage
+                    "local_path": filename
                 }).execute()
                 
-                saved_images.append({"path": img_url, "source": img_url})
+                base_url = SUPABASE_URL.rstrip("/")
+                public_url = f"{base_url}/storage/v1/object/public/skin-warehouse/{filename}"
+                saved_images.append({"path": public_url, "source": img_url})
+                
                 saved += 1
             except Exception as e:
-                debug_log.append(f"DB Error: {str(e)[:50]}")
+                debug_log.append(f"Upload Error: {str(e)[:50]}")
                 continue
 
         retrained = False
