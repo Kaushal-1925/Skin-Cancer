@@ -323,6 +323,12 @@ function initScraper() {
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ url, label, retrain: retrainCb.checked })
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
+      }
+
       const data = await res.json();
       if (data.error) { log(`[✗] Error: ${data.error}`); }
       else {
@@ -340,8 +346,8 @@ function initScraper() {
       }
     } catch(e) { 
       console.error("[Scraper Error]", e);
-      log(`[✗] Network/Server error. This usually happens if Render is still deploying or the request timed out.`); 
-      log(`[!] Tip: Try again in a minute, or uncheck 'Retrain CNN' to speed up the process.`);
+      log(`[✗] Scraper failed: ${e.message.includes("Unexpected token") ? "Server returned HTML (likely a timeout or deployment in progress)" : e.message}`); 
+      log(`[!] Tip: Wait 1 minute for the build to finish, then try again without 'Retrain CNN' checked.`);
     }
     scrapeBtn.disabled = false; scrapeBtn.textContent = "🔍 Scrape";
   });
