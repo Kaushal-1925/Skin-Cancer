@@ -74,15 +74,44 @@ def reload_model():
 # ── Data helpers ──────────────────────────────────────────
 CSV_PATH = os.path.join(BASE_DIR, "SkinWarehouse_Registry.csv")
 
+def append_to_csv(source_url, label, local_path):
+    try:
+        file_exists = os.path.exists(CSV_PATH)
+        
+        # Read existing records to find the highest ID
+        next_id = 1
+        if file_exists:
+            with open(CSV_PATH, "r") as f:
+                reader = list(csv.DictReader(f))
+                if reader:
+                    ids = [int(r["id"]) for r in reader if r.get("id", "").isdigit()]
+                    if ids:
+                        next_id = max(ids) + 1
+        
+        # Append record
+        with open(CSV_PATH, "a", newline="") as f:
+            writer = csv.writer(f)
+            if not file_exists or os.path.getsize(CSV_PATH) == 0:
+                writer.writerow(["id", "SourceURL", "Label", "LocalPath", "CreatedDate"])
+            
+            import datetime
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            writer.writerow([next_id, source_url, label, local_path, now_str])
+            print(f"[CSV] Appended record #{next_id} locally.")
+    except Exception as e:
+        print(f"[CSV Error] Failed to append: {e}")
+
 def get_records():
-    """Fetch all records from Supabase first, fall back to local CSV."""
+    """Fetch all records from Supabase and combine them with local CSV data for robust fallback."""
+    rows = []
+    source = "supabase"
     
     # Try Supabase
     try:
         response = supabase.table("fact_lesions").select("*").order("id").execute()
-        rows = response.data
-        if isinstance(rows, list):
-            for r in rows:
+        db_rows = response.data
+        if isinstance(db_rows, list):
+            for r in db_rows:
                 path = r.get("local_path", "")
                 if path:
                     if "supabase.co//storage" in path:
@@ -91,32 +120,38 @@ def get_records():
                         base_url = SUPABASE_URL.rstrip("/")
                         path = f"{base_url}/storage/v1/object/public/skin-warehouse/{path}"
                     r["local_path"] = path
-            return rows, "supabase"
+            rows.extend(db_rows)
     except Exception as e:
         print(f"[Supabase Error] {e}")
+        source = "csv"
 
-    # Fallback to local CSV + local image files
+    # Always merge local CSV records to display locally saved scraper fallbacks
     try:
         if os.path.exists(CSV_PATH):
             with open(CSV_PATH, "r") as f:
                 reader = csv.DictReader(f)
-                rows = []
+                csv_rows = []
                 for row in reader:
-                    # LocalPath in CSV is like "SkinWarehouse/MEL_0_1225.jpg"
-                    # This is served directly by Flask's static_files route
                     local_path = row.get("LocalPath", "")
-                    rows.append({
+                    csv_rows.append({
                         "id": row.get("id", ""),
                         "label": row.get("Label", ""),
                         "local_path": f"/{local_path}" if local_path else "",
                         "source_url": row.get("SourceURL", ""),
                         "created_at": row.get("CreatedDate", "")
                     })
-                return rows, "csv"
+                
+                # Add local CSV records if they aren't already fetched from Supabase
+                existing_urls = {r.get("source_url") for r in rows}
+                for r in csv_rows:
+                    if r.get("source_url") not in existing_urls:
+                        rows.append(r)
     except Exception as e:
         print(f"[CSV Error] {e}")
+        if not rows:
+            source = "error"
 
-    return [], "error"
+    return rows, source
 
 # ── API: records ───────────────────────────────────────────
 @app.route("/api/records")
@@ -263,27 +298,47 @@ def api_scrape():
                 
                 filename = f"{label}_{saved}_{uid}{ext}"
 
-                # 2. Upload raw bytes to Supabase Storage
-                supabase.storage.from_("skin-warehouse").upload(
-                    path=filename,
-                    file=img_bytes,
-                    file_options={"content-type": f"image/{ext.strip('.')}"}
-                )
+                # Try uploading to Supabase first; fall back to local disk and CSV on failure
+                uploaded_to_supabase = False
+                try:
+                    # 2. Upload raw bytes to Supabase Storage
+                    supabase.storage.from_("skin-warehouse").upload(
+                        path=filename,
+                        file=img_bytes,
+                        file_options={"content-type": f"image/{ext.strip('.')}"}
+                    )
 
-                # 3. Save reference in database
-                supabase.table("fact_lesions").insert({
-                    "source_url": img_url,
-                    "label": label,
-                    "local_path": filename
-                }).execute()
+                    # 3. Save reference in database
+                    supabase.table("fact_lesions").insert({
+                        "source_url": img_url,
+                        "label": label,
+                        "local_path": filename
+                    }).execute()
+                    
+                    base_url = SUPABASE_URL.rstrip("/")
+                    public_url = f"{base_url}/storage/v1/object/public/skin-warehouse/{filename}"
+                    uploaded_to_supabase = True
+                    print(f"[Supabase] Successfully uploaded scraped image: {filename}")
+                except Exception as db_err:
+                    print(f"[Supabase Scraper Warning] {db_err} - Falling back to local storage.")
                 
-                base_url = SUPABASE_URL.rstrip("/")
-                public_url = f"{base_url}/storage/v1/object/public/skin-warehouse/{filename}"
+                if not uploaded_to_supabase:
+                    # Save locally
+                    local_dir = os.path.join(BASE_DIR, "SkinWarehouse")
+                    os.makedirs(local_dir, exist_ok=True)
+                    local_filepath = os.path.join(local_dir, filename)
+                    with open(local_filepath, "wb") as f:
+                        f.write(img_bytes)
+                    
+                    # Register in local CSV
+                    append_to_csv(img_url, label, f"SkinWarehouse/{filename}")
+                    public_url = f"/SkinWarehouse/{filename}"
+                    print(f"[Local Fallback] Successfully saved scraped image locally: {filename}")
+
                 saved_images.append({"path": public_url, "source": img_url})
-                
                 saved += 1
             except Exception as e:
-                debug_log.append(f"Upload Error: {str(e)[:50]}")
+                debug_log.append(f"Scraper Error: {str(e)[:50]}")
                 continue
 
         retrained = False
