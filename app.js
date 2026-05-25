@@ -56,8 +56,16 @@ async function loadData() {
 
 function updateSourceTag(src) {
   if (!sourceTag) return;
-  sourceTag.textContent = src === "mysql" ? "● Live MySQL" : "● CSV Offline";
-  sourceTag.style.color = src === "mysql" ? "#059669" : "#ea580c";
+  if (src === "supabase") {
+    sourceTag.textContent = "● Live Supabase";
+    sourceTag.style.color = "#10b981";
+  } else if (src === "mysql") {
+    sourceTag.textContent = "● Live MySQL";
+    sourceTag.style.color = "#059669";
+  } else {
+    sourceTag.textContent = "● CSV Offline";
+    sourceTag.style.color = "#ea580c";
+  }
 }
 
 function showSkeleton() {

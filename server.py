@@ -81,7 +81,7 @@ def get_records():
     try:
         response = supabase.table("fact_lesions").select("*").order("id").execute()
         rows = response.data
-        if rows and len(rows) > 0:
+        if isinstance(rows, list):
             for r in rows:
                 path = r.get("local_path", "")
                 if path:
